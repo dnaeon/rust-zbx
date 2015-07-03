@@ -1,0 +1,8 @@
+[package]
+name = "zbx"
+version = "0.1.0"
+description = "Crate for creating Zabbix loadable modules"
+authors = ["Marin Atanasov Nikolov <dnaeon@gmail.com>"]
+
+[dependencies]
+libc = "*"
