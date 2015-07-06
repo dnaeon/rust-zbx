@@ -97,6 +97,23 @@ impl Clone for ZabbixRequest {
     fn clone(&self) -> Self { *self }
 }
 
+impl ZabbixRequest {
+    pub fn get_params<'a>(request: *mut ZabbixRequest) -> Vec<&'a[u8]> {
+        unsafe {
+            let len = (*request).nparam;
+            let mut v = Vec::new();
+
+            for i in 0..len {
+                let ptr = (*request).params.offset(i as isize);
+                let param = ffi::CStr::from_ptr(*ptr).to_bytes();
+                v.push(param);
+            }
+
+            v
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Copy)]
 pub struct zbx_log_t {
