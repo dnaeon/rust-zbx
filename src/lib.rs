@@ -1,6 +1,6 @@
 extern crate libc;
 
-use std::ffi;
+use std::{ffi, ptr};
 use libc::{c_char, c_int, c_uint, uint64_t,  c_double, malloc, strncpy};
 
 // Return codes used by module during (un)initialization
@@ -49,18 +49,36 @@ impl Clone for ZabbixMetric {
 }
 
 impl ZabbixMetric {
-    pub fn new(key: &str,
-           flags: u32,
-           function: extern "C" fn(*mut ZabbixRequest, *mut ZabbixResult) -> i32,
-           test_param: &str) -> ZabbixMetric {
-        let c_key = ffi::CString::new(key).unwrap();
-        let c_test_param = ffi::CString::new(test_param).unwrap();
+    pub fn new(key: Option<&str>,
+               flags: Option<u32>,
+               function: Option<extern "C" fn(*mut ZabbixRequest, *mut ZabbixResult) -> i32>,
+               test_param: Option<&str>) -> ZabbixMetric {
+
+        let c_key: *const c_char = match key {
+            Some(ref k) => ffi::CString::new(*k).unwrap().as_ptr(),
+            None        => ptr::null(),
+        };
+
+        let flags: c_uint = match flags {
+            Some(f) => f,
+            None    => CF_NOPARAMS,
+        };
+
+        let function: extern "C" fn(*mut ZabbixRequest, *mut ZabbixResult) -> c_int = match function {
+            Some(callback) => callback,
+            None           => dummy_callback,
+        };
+
+        let c_test_param: *const c_char = match test_param {
+            Some(ref t) => ffi::CString::new(*t).unwrap().as_ptr(),
+            None        => ptr::null(),
+        };
 
         ZabbixMetric {
-            key: c_key.as_ptr(),
-            flags: flags as c_uint,
+            key: c_key,
+            flags: flags,
             function: function,
-            test_param: c_test_param.as_ptr(),
+            test_param: c_test_param,
         }
     }
 }
@@ -150,6 +168,16 @@ impl ZabbixResult {
     }
 }
 
+// Dummy Zabbix item callback function.
+// Callback is used by NULL-key Zabbix items to specify the
+// end of the items list.
+// Do not use this callback directly in your crates.
+#[no_mangle]
+#[allow(unused_variables)]
+pub extern fn dummy_callback(request: *mut ZabbixRequest, result: *mut ZabbixResult) -> c_int {
+    SYSINFO_RET_OK
+}
+
 unsafe fn string_to_malloc_ptr(src: &str) -> *mut c_char {
     let c_src = ffi::CString::new(src).unwrap();
     let len = c_src.to_bytes_with_nul().len() as u64;
@@ -159,3 +187,4 @@ unsafe fn string_to_malloc_ptr(src: &str) -> *mut c_char {
 
     dst
 }
+
