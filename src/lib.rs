@@ -1,7 +1,7 @@
 extern crate libc;
 
 use std::ffi;
-use libc::{c_char, c_int, c_uint, uint64_t,  c_double};
+use libc::{c_char, c_int, c_uint, uint64_t,  c_double, malloc, strncpy};
 
 // Return codes used by module during (un)initialization
 pub const ZBX_MODULE_OK: c_int = 0;
@@ -11,6 +11,7 @@ pub const ZBX_MODULE_FAIL: c_int = -1;
 pub const ZBX_MODULE_API_VERSION_ONE: c_int = 1;
 
 // Flags for commands
+// Item does not accept parameters
 pub const CF_NOPARAMS: c_uint = 0;
 
 // Item accepts either optional or mandatory parameters
@@ -125,27 +126,36 @@ impl ZabbixResult {
         }
     }
 
-    pub fn set_str_result(result: *mut ZabbixResult, value: String) {
+    pub fn set_str_result(result: *mut ZabbixResult, value: &str) {
         unsafe {
             (*result)._type |= AR_STRING;
-            // TODO: set string
+            (*result)._str = string_to_malloc_ptr(value);
         }
     }
 
-    pub fn set_text_result(result: *mut ZabbixResult, value: String) {
+    pub fn set_text_result(result: *mut ZabbixResult, value: &str) {
         unsafe {
             (*result)._type |= AR_TEXT;
-            // TODO: set text
+            (*result).text = string_to_malloc_ptr(value);
         }
     }
 
     // TODO: Implement set_log_result(...)
 
-    pub fn set_msg_result(result: *mut ZabbixResult, value: String) {
+    pub fn set_msg_result(result: *mut ZabbixResult, value: &str) {
         unsafe {
             (*result)._type |= AR_MESSAGE;
-            // TODO: set message
+            (*result).msg = string_to_malloc_ptr(value);
         }
     }
 }
 
+unsafe fn string_to_malloc_ptr(src: &str) -> *mut c_char {
+    let c_src = ffi::CString::new(src).unwrap();
+    let len = c_src.to_bytes_with_nul().len() as u64;
+
+    let dst = malloc(len) as *mut c_char;
+    strncpy(dst, c_src.as_ptr(), len);
+
+    dst
+}
