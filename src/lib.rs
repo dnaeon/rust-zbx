@@ -195,6 +195,9 @@ pub extern fn dummy_callback(request: *mut ZabbixRequest, result: *mut ZabbixRes
     SYSINFO_RET_OK
 }
 
+// When the result of a Zabbix item is text (string, text and message)
+// Zabbix expects to receive a pre-allocated pointer with the result
+// string, which is free(3)'d by Zabbix once done with the result.
 unsafe fn string_to_malloc_ptr(src: &str) -> *mut c_char {
     let c_src = ffi::CString::new(src).unwrap();
     let len = c_src.to_bytes_with_nul().len() as u64;
