@@ -1,6 +1,6 @@
 extern crate libc;
 
-use std::{ffi, ptr};
+use std::ffi;
 use libc::{c_char, c_int, c_uint, uint64_t,  c_double, malloc, strncpy};
 
 // Return codes used by module during (un)initialization
@@ -35,57 +35,50 @@ pub const AR_MESSAGE: c_int = 32;
 pub const SYSINFO_RET_OK: c_int = 0;
 pub const SYSINFO_RET_FAIL: c_int = 1;
 
-#[repr(C)]
-#[derive(Copy)]
-pub struct ZabbixMetric {
-    key: *const c_char,
-    flags: c_uint,
-    function: extern "C" fn(*mut ZabbixRequest, *mut ZabbixResult) -> c_int,
-    test_param: *const c_char,
+// Type used for creating new Zabbix item keys
+pub struct Metric {
+    pub key: ffi::CString,
+    pub flags: usize,
+    pub function: extern "C" fn(*mut AGENT_REQUEST, *mut AGENT_RESULT) -> c_int,
+    pub test_param: ffi::CString,
 }
 
-impl Clone for ZabbixMetric {
-    fn clone(&self) -> Self { *self }
-}
-
-impl ZabbixMetric {
-    pub fn new(key: Option<&str>,
-               flags: Option<u32>,
-               function: Option<extern "C" fn(*mut ZabbixRequest, *mut ZabbixResult) -> i32>,
-               test_param: Option<&str>) -> ZabbixMetric {
-
-        let c_key: *const c_char = match key {
-            Some(ref k) => ffi::CString::new(*k).unwrap().as_ptr(),
-            None        => ptr::null(),
-        };
-
-        let flags: c_uint = match flags {
-            Some(f) => f,
-            None    => CF_NOPARAMS,
-        };
-
-        let function: extern "C" fn(*mut ZabbixRequest, *mut ZabbixResult) -> c_int = match function {
-            Some(callback) => callback,
-            None           => dummy_callback,
-        };
-
-        let c_test_param: *const c_char = match test_param {
-            Some(ref t) => ffi::CString::new(*t).unwrap().as_ptr(),
-            None        => ptr::null(),
-        };
-
-        ZabbixMetric {
-            key: c_key,
+impl Metric {
+    pub fn new(key: &str, flags: usize, function: extern "C" fn(*mut AGENT_REQUEST, *mut AGENT_RESULT) -> c_int, test_param: &str) -> Metric {
+        Metric {
+            key: ffi::CString::new(key).unwrap(),
             flags: flags,
             function: function,
-            test_param: c_test_param,
+            test_param: ffi::CString::new(test_param).unwrap(),
+        }
+    }
+
+    pub fn to_zabbix_item(&self) -> ZBX_METRIC {
+        ZBX_METRIC {
+            key: self.key.as_ptr(),
+            flags: self.flags as c_uint,
+            function: self.function,
+            test_param: self.test_param.as_ptr(),
         }
     }
 }
 
 #[repr(C)]
 #[derive(Copy)]
-pub struct ZabbixRequest {
+pub struct ZBX_METRIC {
+    pub key: *const c_char,
+    pub flags: c_uint,
+    pub function: extern "C" fn(*mut AGENT_REQUEST, *mut AGENT_RESULT) -> c_int,
+    pub test_param: *const c_char,
+}
+
+impl Clone for ZBX_METRIC {
+    fn clone(&self) -> Self { *self }
+}
+
+#[repr(C)]
+#[derive(Copy)]
+pub struct AGENT_REQUEST {
     key: *const c_char,
     nparam: c_int,
     params: *const *const c_char,
@@ -93,12 +86,12 @@ pub struct ZabbixRequest {
     mtime: c_int,
 }
 
-impl Clone for ZabbixRequest {
+impl Clone for AGENT_REQUEST {
     fn clone(&self) -> Self { *self }
 }
 
-impl ZabbixRequest {
-    pub fn get_params<'a>(request: *mut ZabbixRequest) -> Vec<&'a[u8]> {
+impl AGENT_REQUEST {
+    pub fn get_params<'a>(request: *mut AGENT_REQUEST) -> Vec<&'a[u8]> {
         unsafe {
             let len = (*request).nparam;
             let mut v = Vec::new();
@@ -132,7 +125,7 @@ impl Clone for zbx_log_t {
 
 #[repr(C)]
 #[derive(Copy)]
-pub struct ZabbixResult {
+pub struct AGENT_RESULT {
     _type: c_int,
     ui64: uint64_t,
     dbl: c_double,
@@ -142,57 +135,47 @@ pub struct ZabbixResult {
     logs: *const *const zbx_log_t,
 }
 
-impl Clone for ZabbixResult {
+impl Clone for AGENT_RESULT {
     fn clone(&self) -> Self { *self }
 }
 
-impl ZabbixResult {
-    pub fn set_uint64_result(result: *mut ZabbixResult, value: u64) {
+impl AGENT_RESULT {
+    pub fn set_uint64_result(result: *mut AGENT_RESULT, value: u64) {
         unsafe {
             (*result)._type |= AR_UINT64;
             (*result).ui64 = value as uint64_t;
         }
     }
 
-    pub fn set_f64_result(result: *mut ZabbixResult, value: f64) {
+    pub fn set_f64_result(result: *mut AGENT_RESULT, value: f64) {
         unsafe {
             (*result)._type |= AR_DOUBLE;
             (*result).dbl = value as c_double;
         }
     }
 
-    pub fn set_str_result(result: *mut ZabbixResult, value: &str) {
+    pub fn set_str_result(result: *mut AGENT_RESULT, value: &str) {
         unsafe {
             (*result)._type |= AR_STRING;
             (*result)._str = string_to_malloc_ptr(value);
         }
     }
 
-    pub fn set_text_result(result: *mut ZabbixResult, value: &str) {
+    pub fn set_text_result(result: *mut AGENT_RESULT, value: &str) {
         unsafe {
             (*result)._type |= AR_TEXT;
             (*result).text = string_to_malloc_ptr(value);
         }
     }
 
-    // TODO: Implement set_log_result(...)
-
-    pub fn set_msg_result(result: *mut ZabbixResult, value: &str) {
+    pub fn set_msg_result(result: *mut AGENT_RESULT, value: &str) {
         unsafe {
             (*result)._type |= AR_MESSAGE;
             (*result).msg = string_to_malloc_ptr(value);
         }
     }
-}
 
-// Dummy Zabbix item callback function.
-// Callback is used by NULL-key Zabbix items to specify the
-// end of the items list.
-// Do not use this callback directly in your crates.
-#[no_mangle]
-#[allow(unused_variables)]
-pub extern fn dummy_callback(request: *mut ZabbixRequest, result: *mut ZabbixResult) -> c_int {
-    SYSINFO_RET_OK
+    // TODO: Implement set_log_result(...)
 }
 
 // When the result of a Zabbix item is text (string, text and message)
@@ -208,3 +191,11 @@ unsafe fn string_to_malloc_ptr(src: &str) -> *mut c_char {
     dst
 }
 
+pub fn create_items(metrics: &Vec<Metric>) -> *const ZBX_METRIC {
+    let items = metrics
+        .iter()
+        .map(|metric| metric.to_zabbix_item())
+        .collect::<Vec<_>>();
+
+    items.as_ptr()
+}
