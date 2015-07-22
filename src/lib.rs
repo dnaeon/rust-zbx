@@ -38,16 +38,16 @@ pub const SYSINFO_RET_FAIL: c_int = 1;
 // Type used for creating new Zabbix item keys
 pub struct Metric {
     pub key: ffi::CString,
-    pub flags: usize,
+    pub flags: c_uint,
     pub function: extern "C" fn(*mut AGENT_REQUEST, *mut AGENT_RESULT) -> c_int,
     pub test_param: ffi::CString,
 }
 
 impl Metric {
-    pub fn new(key: &str, flags: usize, function: extern "C" fn(*mut AGENT_REQUEST, *mut AGENT_RESULT) -> c_int, test_param: &str) -> Metric {
+    pub fn new(key: &str, flags: u32, function: extern "C" fn(*mut AGENT_REQUEST, *mut AGENT_RESULT) -> c_int, test_param: &str) -> Metric {
         Metric {
             key: ffi::CString::new(key).unwrap(),
-            flags: flags,
+            flags: flags as c_uint,
             function: function,
             test_param: ffi::CString::new(test_param).unwrap(),
         }
