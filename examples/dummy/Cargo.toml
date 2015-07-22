@@ -1,0 +1,13 @@
+[package]
+name = "dummy"
+version = "0.1.0"
+description = "Example Zabbix loadable module written in Rust"
+authors = ["Marin Atanasov Nikolov <dnaeon@gmail.com>"]
+
+[dependencies.rand]
+version = "*"
+
+[dependencies.zbx]
+path = "../../"
+version = "*"
+
