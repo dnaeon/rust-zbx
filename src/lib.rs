@@ -64,7 +64,6 @@ impl Metric {
 }
 
 #[repr(C)]
-#[derive(Copy)]
 pub struct ZBX_METRIC {
     pub key: *const c_char,
     pub flags: c_uint,
@@ -72,22 +71,13 @@ pub struct ZBX_METRIC {
     pub test_param: *const c_char,
 }
 
-impl Clone for ZBX_METRIC {
-    fn clone(&self) -> Self { *self }
-}
-
 #[repr(C)]
-#[derive(Copy)]
 pub struct AGENT_REQUEST {
     key: *const c_char,
     nparam: c_int,
     params: *const *const c_char,
     lastlogsize: uint64_t,
     mtime: c_int,
-}
-
-impl Clone for AGENT_REQUEST {
-    fn clone(&self) -> Self { *self }
 }
 
 impl AGENT_REQUEST {
@@ -108,7 +98,6 @@ impl AGENT_REQUEST {
 }
 
 #[repr(C)]
-#[derive(Copy)]
 pub struct zbx_log_t {
     value: *const c_char,
     source: *const c_char,
@@ -119,12 +108,7 @@ pub struct zbx_log_t {
     mtime: c_int,
 }
 
-impl Clone for zbx_log_t {
-    fn clone(&self) -> Self { *self }
-}
-
 #[repr(C)]
-#[derive(Copy)]
 pub struct AGENT_RESULT {
     _type: c_int,
     ui64: uint64_t,
@@ -133,10 +117,6 @@ pub struct AGENT_RESULT {
     text: *const c_char,
     msg: *const c_char,
     logs: *const *const zbx_log_t,
-}
-
-impl Clone for AGENT_RESULT {
-    fn clone(&self) -> Self { *self }
 }
 
 impl AGENT_RESULT {
