@@ -12,6 +12,6 @@ crate-type = ["dylib"]
 version = "*"
 
 [dependencies.zbx]
-path = "../../"
+git = "https://github.com/dnaeon/rust-zbx.git"
 version = "*"
 
